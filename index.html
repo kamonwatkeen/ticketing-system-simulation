@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Advanced Ticketing System Simulation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    form {
+      background: #fff;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      max-width: 600px;
+    }
+    label {
+      margin-top: 10px;
+      display: block;
+      font-weight: bold;
+    }
+    input, textarea, select, button {
+      margin-top: 5px;
+      padding: 8px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    textarea {
+      resize: vertical;
+      height: 80px;
+    }
+    .ticket {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 10px;
+    }
+    .ticket.resolved {
+      background-color: #e0ffe0;
+    }
+    .ticket-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ticket-actions button {
+      margin-left: 5px;
+      cursor: pointer;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+    }
+    .ticket-actions button:hover {
+      opacity: 0.9;
+    }
+    button.resolve-btn {
+      background-color: #007BFF;
+      color: #fff;
+    }
+    button.edit-btn {
+      background-color: #28a745;
+      color: #fff;
+    }
+    button.delete-btn {
+      background-color: #dc3545;
+      color: #fff;
+    }
+    /* Controls for search and filter */
+    .controls {
+      margin-bottom: 20px;
+      max-width: 600px;
+      display: flex;
+      gap: 10px;
+    }
+    .controls input, .controls select {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Advanced Ticketing System Simulation</h1>
+
+  <!-- Ticket Submission / Edit Form -->
+  <form id="ticketForm">
+    <input type="hidden" id="ticketId" />
+    <label for="ticketTitle">Ticket Title</label>
+    <input type="text" id="ticketTitle" required placeholder="Enter ticket title" />
+
+    <label for="ticketDescription">Description</label>
+    <textarea id="ticketDescription" required placeholder="Describe the issue"></textarea>
+
+    <label for="ticketPriority">Priority</label>
+    <select id="ticketPriority">
+      <option value="Low">Low</option>
+      <option value="Medium">Medium</option>
+      <option value="High">High</option>
+    </select>
+
+    <label for="ticketAssignee">Assign To</label>
+    <input type="text" id="ticketAssignee" placeholder="Enter assignee's name (optional)" />
+
+    <button type="submit">Submit Ticket</button>
+  </form>
+
+  <!-- Search and Filter Controls -->
+  <div class="controls">
+    <input type="text" id="searchInput" placeholder="Search by title..." />
+    <select id="filterStatus">
+      <option value="All">All Statuses</option>
+      <option value="Open">Open</option>
+      <option value="Resolved">Resolved</option>
+    </select>
+  </div>
+
+  <h2>Tickets</h2>
+  <div id="ticketList"></div>
+
+  <script>
+    // Global array to hold ticket data
+    let tickets = [];
+    // When editing, store the current ticket id (null if not editing)
+    let editingTicketId = null;
+
+    // Check localStorage for saved tickets on page load
+    window.onload = function() {
+      const savedTickets = localStorage.getItem("tickets");
+      if (savedTickets) {
+        tickets = JSON.parse(savedTickets);
+      }
+      renderTickets();
+    };
+
+    // Save tickets array to localStorage
+    function saveTickets() {
+      localStorage.setItem("tickets", JSON.stringify(tickets));
+    }
+
+    // Render tickets according to filter and search
+    function renderTickets() {
+      const ticketList = document.getElementById("ticketList");
+      ticketList.innerHTML = "";
+      const searchTerm = document.getElementById("searchInput").value.toLowerCase();
+      const filterStatus = document.getElementById("filterStatus").value;
+      
+      tickets.forEach((ticket) => {
+        // Apply search filter
+        if (!ticket.title.toLowerCase().includes(searchTerm)) {
+          return;
+        }
+        // Apply status filter
+        if (filterStatus !== "All" && ticket.status !== filterStatus) {
+          return;
+        }
+        // Create ticket div
+        const ticketDiv = document.createElement("div");
+        ticketDiv.className = "ticket";
+        if (ticket.status === "Resolved") {
+          ticketDiv.classList.add("resolved");
+        }
+        ticketDiv.innerHTML = `
+          <div class="ticket-header">
+            <div>
+              <h3>${ticket.title} <small>(${ticket.priority})</small></h3>
+              <p><em>Created: ${new Date(ticket.createdAt).toLocaleString()}</em></p>
+              <p><em>Assigned to: ${ticket.assignee ? ticket.assignee : "Unassigned"}</em></p>
+            </div>
+            <div class="ticket-actions">
+              ${ticket.status === "Open" ? `<button class="resolve-btn" onclick="resolveTicket('${ticket.id}')">Resolve</button>` : ""}
+              <button class="edit-btn" onclick="editTicket('${ticket.id}')">Edit</button>
+              <button class="delete-btn" onclick="deleteTicket('${ticket.id}')">Delete</button>
+            </div>
+          </div>
+          <p>${ticket.description}</p>
+          <p>Status: <strong>${ticket.status}</strong></p>
+        `;
+        ticketList.appendChild(ticketDiv);
+      });
+    }
+
+    // Generate unique id for a ticket
+    function generateId() {
+      return '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // Handle form submission for adding or editing a ticket
+    document.getElementById("ticketForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const title = document.getElementById("ticketTitle").value;
+      const description = document.getElementById("ticketDescription").value;
+      const priority = document.getElementById("ticketPriority").value;
+      const assignee = document.getElementById("ticketAssignee").value;
+      
+      if (editingTicketId) {
+        // Update existing ticket
+        tickets = tickets.map(ticket => {
+          if (ticket.id === editingTicketId) {
+            return { ...ticket, title, description, priority, assignee };
+          }
+          return ticket;
+        });
+        editingTicketId = null;
+        document.getElementById("ticketForm").querySelector("button").innerText = "Submit Ticket";
+      } else {
+        // Create a new ticket
+        const newTicket = {
+          id: generateId(),
+          title,
+          description,
+          priority,
+          assignee,
+          status: "Open",
+          createdAt: new Date().toISOString()
+        };
+        tickets.push(newTicket);
+      }
+      // Save and re-render tickets
+      saveTickets();
+      renderTickets();
+      this.reset();
+    });
+
+    // Mark a ticket as resolved
+    function resolveTicket(ticketId) {
+      tickets = tickets.map(ticket => {
+        if (ticket.id === ticketId) {
+          return { ...ticket, status: "Resolved" };
+        }
+        return ticket;
+      });
+      saveTickets();
+      renderTickets();
+    }
+
+    // Delete a ticket
+    function deleteTicket(ticketId) {
+      tickets = tickets.filter(ticket => ticket.id !== ticketId);
+      saveTickets();
+      renderTickets();
+    }
+
+    // Populate form with ticket data for editing
+    function editTicket(ticketId) {
+      const ticket = tickets.find(t => t.id === ticketId);
+      if (ticket) {
+        editingTicketId = ticketId;
+        document.getElementById("ticketTitle").value = ticket.title;
+        document.getElementById("ticketDescription").value = ticket.description;
+        document.getElementById("ticketPriority").value = ticket.priority;
+        document.getElementById("ticketAssignee").value = ticket.assignee;
+        // Change the button text to indicate edit mode
+        document.getElementById("ticketForm").querySelector("button").innerText = "Update Ticket";
+        // Scroll to the form
+        window.scrollTo(0, 0);
+      }
+    }
+
+    // Add event listeners for search and filter controls
+    document.getElementById("searchInput").addEventListener("input", renderTickets);
+    document.getElementById("filterStatus").addEventListener("change", renderTickets);
+  </script>
+</body>
+</html>
